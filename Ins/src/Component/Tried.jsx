@@ -21,7 +21,7 @@ const Tried = () => {
           lastReset: new Date().toISOString()
         };
 
-        // Generate a unique visitor ID (using IP + user agent + timestamp)
+        // Generate a unique visitor ID (using device characteristics)
         const visitorId = generateVisitorId();
         
         // Check if this is a new visitor or returning visitor
@@ -41,21 +41,51 @@ const Tried = () => {
           isNewVisitor: isNewVisitor
         };
 
-        // Update stats
+        // ALWAYS update weekly count for every visit
+        stats.weeklyUsers += 1;
+        stats.weeklyData.push(visitRecord);
+
+        // Update total users only for new visitors
         if (isNewVisitor) {
           stats.totalUsers += 1;
           stats.uniqueUsers.push(visitRecord);
         }
-        
-        stats.weeklyUsers += 1;
-        stats.weeklyData.push(visitRecord);
 
         // Save updated stats
         localStorage.setItem('triedPageStats', JSON.stringify(stats));
         
-        console.log(`Page visit tracked: ${isNewVisitor ? 'New' : 'Returning'} visitor`);
+        console.log(`Page visit tracked: ${isNewVisitor ? 'New' : 'Returning'} visitor. Total: ${stats.totalUsers}, Weekly: ${stats.weeklyUsers}`);
+        
+        // Force a page reload of stats if this is a new device
+        if (!existingStats) {
+          console.log('New device detected, stats initialized');
+        }
       } catch (error) {
         console.error('Error tracking page visit:', error);
+        // Fallback: create basic stats if there's an error
+        try {
+          const fallbackStats = {
+            totalUsers: 1,
+            weeklyUsers: 1,
+            uniqueUsers: [{
+              id: Date.now(),
+              visitorId: `fallback-${Date.now()}`,
+              name: 'Anonymous User 1',
+              email: '',
+              visitTime: new Date().toISOString(),
+              weekNumber: getWeekNumber(new Date()),
+              userAgent: navigator.userAgent,
+              timestamp: Date.now(),
+              isNewVisitor: true
+            }],
+            weeklyData: [],
+            lastReset: new Date().toISOString()
+          };
+          localStorage.setItem('triedPageStats', JSON.stringify(fallbackStats));
+          console.log('Fallback stats created due to error');
+        } catch (fallbackError) {
+          console.error('Failed to create fallback stats:', fallbackError);
+        }
       }
     };
 
@@ -119,6 +149,26 @@ const Tried = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-6">
+      {/* Hidden Debug Button - Only visible on hover */}
+      <div className="fixed top-4 left-4 z-50 opacity-0 hover:opacity-100 transition-opacity duration-300">
+        <button
+          onClick={() => {
+            const stats = localStorage.getItem('triedPageStats');
+            if (stats) {
+              const parsed = JSON.parse(stats);
+              console.log('Current tracking stats:', parsed);
+              alert(`Tracking Stats:\nTotal Users: ${parsed.totalUsers}\nWeekly Users: ${parsed.weeklyUsers}\nUnique Users: ${parsed.uniqueUsers.length}\n\nCheck console for full data.`);
+            } else {
+              alert('No tracking data found in localStorage');
+            }
+          }}
+          className="w-8 h-8 bg-red-600 rounded-full flex items-center justify-center text-white text-xs hover:bg-red-700"
+          title="Debug: Check tracking data"
+        >
+          D
+        </button>
+      </div>
+
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="text-center mb-12">

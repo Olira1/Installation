@@ -197,6 +197,49 @@ const Control = () => {
           </button>
         </div>
 
+        {/* Debug Section - Only visible in development */}
+        {process.env.NODE_ENV === 'development' && (
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
+            <h3 className="text-lg font-semibold text-yellow-800 mb-3">🔍 Debug Information</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+              <div>
+                <p className="font-medium text-yellow-700">LocalStorage Status:</p>
+                <p className="text-yellow-600">
+                  {localStorage.getItem('triedPageStats') ? '✅ Data exists' : '❌ No data found'}
+                </p>
+              </div>
+              <div>
+                <p className="font-medium text-yellow-700">Last Refresh:</p>
+                <p className="text-yellow-600">{new Date().toLocaleTimeString()}</p>
+              </div>
+              <div>
+                <p className="font-medium text-yellow-700">Auto-refresh Interval:</p>
+                <p className="text-yellow-600">Every 5 seconds</p>
+              </div>
+              <div>
+                <p className="font-medium text-yellow-700">Current Device:</p>
+                <p className="text-yellow-600">{navigator.userAgent.substring(0, 50)}...</p>
+              </div>
+            </div>
+            <div className="mt-3">
+              <button
+                onClick={() => {
+                  const stats = localStorage.getItem('triedPageStats');
+                  if (stats) {
+                    console.log('Current localStorage data:', JSON.parse(stats));
+                    alert('Check console for localStorage data');
+                  } else {
+                    alert('No localStorage data found');
+                  }
+                }}
+                className="px-3 py-1 bg-yellow-600 text-white rounded text-xs hover:bg-yellow-700"
+              >
+                Log Data to Console
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <div className="bg-white rounded-2xl shadow-xl p-6 border border-gray-100 hover:shadow-2xl transition-all duration-300">
