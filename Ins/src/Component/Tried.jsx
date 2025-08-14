@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 const Tried = () => {
   const [copiedStates, setCopiedStates] = useState({
@@ -6,6 +6,83 @@ const Tried = () => {
     tailwind: false,
     vite: false
   });
+
+  // Automatic page visit tracking
+  useEffect(() => {
+    const trackPageVisit = () => {
+      try {
+        // Get existing stats from localStorage
+        const existingStats = localStorage.getItem('triedPageStats');
+        let stats = existingStats ? JSON.parse(existingStats) : {
+          totalUsers: 0,
+          weeklyUsers: 0,
+          uniqueUsers: [],
+          weeklyData: [],
+          lastReset: new Date().toISOString()
+        };
+
+        // Generate a unique visitor ID (using IP + user agent + timestamp)
+        const visitorId = generateVisitorId();
+        
+        // Check if this is a new visitor or returning visitor
+        const isNewVisitor = !stats.uniqueUsers.some(user => user.visitorId === visitorId);
+        
+        // Create visit record
+        const now = new Date();
+        const visitRecord = {
+          id: Date.now(),
+          visitorId: visitorId,
+          name: isNewVisitor ? `Anonymous User ${stats.uniqueUsers.length + 1}` : 'Returning User',
+          email: '',
+          visitTime: now.toISOString(),
+          weekNumber: getWeekNumber(now),
+          userAgent: navigator.userAgent,
+          timestamp: now.getTime(),
+          isNewVisitor: isNewVisitor
+        };
+
+        // Update stats
+        if (isNewVisitor) {
+          stats.totalUsers += 1;
+          stats.uniqueUsers.push(visitRecord);
+        }
+        
+        stats.weeklyUsers += 1;
+        stats.weeklyData.push(visitRecord);
+
+        // Save updated stats
+        localStorage.setItem('triedPageStats', JSON.stringify(stats));
+        
+        console.log(`Page visit tracked: ${isNewVisitor ? 'New' : 'Returning'} visitor`);
+      } catch (error) {
+        console.error('Error tracking page visit:', error);
+      }
+    };
+
+    // Track the visit when component mounts
+    trackPageVisit();
+  }, []);
+
+  // Helper function to generate a unique visitor ID
+  const generateVisitorId = () => {
+    const userAgent = navigator.userAgent;
+    const screenRes = `${screen.width}x${screen.height}`;
+    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const language = navigator.language;
+    
+    // Create a hash-like ID from visitor characteristics
+    const visitorString = `${userAgent}-${screenRes}-${timezone}-${language}`;
+    return btoa(visitorString).substring(0, 16);
+  };
+
+  // Helper function to get week number
+  const getWeekNumber = (date) => {
+    const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+    const dayNum = d.getUTCDay() || 7;
+    d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+    const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+    return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+  };
 
   const copyToClipboard = async (text, dashboard) => {
     try {

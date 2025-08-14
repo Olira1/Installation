@@ -17,27 +17,38 @@ const Control = () => {
 
   const [showAddUser, setShowAddUser] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
+  const [refreshKey, setRefreshKey] = useState(0); // For refreshing data
 
-  // Initialize stats from localStorage
+  // Initialize stats from localStorage and set up auto-refresh
   useEffect(() => {
-    const savedStats = localStorage.getItem('triedPageStats');
-    if (savedStats) {
-      const parsed = JSON.parse(savedStats);
-      setUserStats(parsed);
-    } else {
-      // Initialize with default values
-      const now = new Date();
-      const initialStats = {
-        totalUsers: 0,
-        weeklyUsers: 0,
-        uniqueUsers: [],
-        weeklyData: [],
-        lastReset: now.toISOString()
-      };
-      setUserStats(initialStats);
-      localStorage.setItem('triedPageStats', JSON.stringify(initialStats));
-    }
-  }, []);
+    const loadStats = () => {
+      const savedStats = localStorage.getItem('triedPageStats');
+      if (savedStats) {
+        const parsed = JSON.parse(savedStats);
+        setUserStats(parsed);
+      } else {
+        // Initialize with default values
+        const now = new Date();
+        const initialStats = {
+          totalUsers: 0,
+          weeklyUsers: 0,
+          uniqueUsers: [],
+          weeklyData: [],
+          lastReset: now.toISOString()
+        };
+        setUserStats(initialStats);
+        localStorage.setItem('triedPageStats', JSON.stringify(initialStats));
+      }
+    };
+
+    // Load stats initially
+    loadStats();
+
+    // Set up auto-refresh every 5 seconds to catch new visits
+    const interval = setInterval(loadStats, 5000);
+
+    return () => clearInterval(interval);
+  }, [refreshKey]);
 
   // Check if it's a new week and reset weekly count
   useEffect(() => {
@@ -74,10 +85,15 @@ const Control = () => {
     const now = new Date();
     const userVisit = {
       id: Date.now(),
+      visitorId: `manual-${Date.now()}`,
       name: newUser.name.trim(),
       email: newUser.email.trim(),
       visitTime: now.toISOString(),
-      weekNumber: getWeekNumber(now)
+      weekNumber: getWeekNumber(now),
+      userAgent: navigator.userAgent,
+      timestamp: now.getTime(),
+      isNewVisitor: true,
+      isManualEntry: true
     };
 
     const updatedStats = {
@@ -136,6 +152,10 @@ const Control = () => {
     return userStats.uniqueUsers.filter(user => getWeekNumber(new Date(user.visitTime)) === currentWeek);
   };
 
+  const refreshData = () => {
+    setRefreshKey(prev => prev + 1);
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 p-6">
       <div className="max-w-7xl mx-auto">
@@ -156,6 +176,12 @@ const Control = () => {
             className="px-6 py-3 bg-gradient-to-r from-indigo-500 to-purple-500 text-white rounded-xl font-semibold hover:from-indigo-600 hover:to-purple-600 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-1"
           >
             + Add User Visit
+          </button>
+          <button
+            onClick={refreshData}
+            className="px-6 py-3 bg-gradient-to-r from-blue-500 to-cyan-500 text-white rounded-xl font-semibold hover:from-blue-600 hover:to-cyan-600 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-1"
+          >
+            🔄 Refresh Data
           </button>
           <button
             onClick={exportData}
@@ -325,9 +351,10 @@ const Control = () => {
                     <thead className="bg-gray-100">
                       <tr>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Visit Time</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Week</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Device Info</th>
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
@@ -335,9 +362,27 @@ const Control = () => {
                         <tr key={user.id} className="hover:bg-gray-50">
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="text-sm font-medium text-gray-900">{user.name}</div>
+                            {user.email && (
+                              <div className="text-xs text-gray-500">{user.email}</div>
+                            )}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm text-gray-500">{user.email || 'N/A'}</div>
+                            <div className="flex items-center gap-2">
+                              {user.isManualEntry && (
+                                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                                  Manual
+                                </span>
+                              )}
+                              {user.isNewVisitor ? (
+                                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                  New
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                  Returning
+                                </span>
+                              )}
+                            </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="text-sm text-gray-500">{formatDate(user.visitTime)}</div>
@@ -346,6 +391,11 @@ const Control = () => {
                             <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
                               Week {user.weekNumber}
                             </span>
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="text-xs text-gray-500 max-w-xs truncate" title={user.userAgent}>
+                              {user.userAgent ? user.userAgent.substring(0, 50) + '...' : 'N/A'}
+                            </div>
                           </td>
                         </tr>
                       ))}
